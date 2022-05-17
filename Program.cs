@@ -4,20 +4,20 @@ using System.Text;
 var input_buffer = new StringBuilder();
 while (true) {
     print_prompt();
-    read_input(input_buffer);
+    var input_string = read_input(input_buffer);
 
     if (input_buffer[0] == '.') {
-        switch (do_meta_command(input_buffer)) {
+        switch (do_meta_command(input_string)) {
             case MetaCommandResult.META_COMMAND_SUCCESS:
                 continue;
             case MetaCommandResult.META_COMMAND_UNRECOGNIZED_COMMAND:
-                Console.WriteLine("Unrecognized command '{0}'", input_buffer.ToString());
+                Console.WriteLine("Unrecognized command '{0}'", input_string);
                 continue;
         }
     }
 
     Statement statement;
-    switch (prepare_statement(input_buffer, out statement)) {
+    switch (prepare_statement(input_string, out statement)) {
         case PrepareResult.PREPARE_SUCCESS:
             break;
         case PrepareResult.PREPARE_UNRECOGNIZED_STATEMENT:
@@ -33,7 +33,7 @@ void print_prompt() {
     Console.Write("db > ");
 }
 
-void read_input(StringBuilder input_buffer) {
+string read_input(StringBuilder input_buffer) {
     input_buffer.Clear();
     try {
         input_buffer.Append(Console.ReadLine());
@@ -41,21 +41,22 @@ void read_input(StringBuilder input_buffer) {
         Console.WriteLine("Error reading input");
         System.Environment.Exit(-1);
     }
+    return input_buffer.ToString();
 }
 
-MetaCommandResult do_meta_command(StringBuilder input_buffer) {
-    if (input_buffer.ToString() == ".exit") {
+MetaCommandResult do_meta_command(string input_string) {
+    if (input_string == ".exit") {
         System.Environment.Exit(0);
     }
     return MetaCommandResult.META_COMMAND_UNRECOGNIZED_COMMAND;
 }
 
-PrepareResult prepare_statement(StringBuilder input_buffer, out Statement statement) {
+PrepareResult prepare_statement(string input_string, out Statement statement) {
     statement = new Statement();
-    if (input_buffer.ToString().StartsWith("insert")) {
+    if (input_string.StartsWith("insert")) {
         statement.statement_type = StatementType.STATEMENT_INSERT;
         return PrepareResult.PREPARE_SUCCESS;
-    } else if (input_buffer.ToString() == "select") {
+    } else if (input_string == "select") {
         statement.statement_type = StatementType.STATEMENT_SELECT;
         return PrepareResult.PREPARE_SUCCESS;
     } else {
