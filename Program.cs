@@ -6,7 +6,7 @@ while (true) {
     print_prompt();
     var input_string = read_input(input_buffer);
 
-    if (input_buffer[0] == '.') {
+    if (input_string[0] == '.') {
         switch (do_meta_command(input_string)) {
             case MetaCommandResult.META_COMMAND_SUCCESS:
                 continue;
