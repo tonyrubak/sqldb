@@ -41,10 +41,10 @@ public class Driver
         {
             statement.statement_type = StatementType.STATEMENT_INSERT;
             var args = input_string.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            var userBytes = Encoding.Unicode.GetBytes(args[2].ToCharArray());
-            var emailBytes = Encoding.Unicode.GetBytes(args[3].ToCharArray());
             if (args.Length < 4)
                 return PrepareResult.PREPARE_SYNTAX_ERROR;
+            var userBytes = Encoding.Unicode.GetBytes(args[2].ToCharArray());
+            var emailBytes = Encoding.Unicode.GetBytes(args[3].ToCharArray());
             statement.row_to_insert.id = UInt32.Parse(args[1]);
             fixed (char* ptrToUsername = statement.row_to_insert.username,
                 ptrToEmail = statement.row_to_insert.email)
@@ -78,7 +78,7 @@ public class Driver
         }
     }
 
-    unsafe ExecuteResult execute_insert(Statement statement)
+    ExecuteResult execute_insert(Statement statement)
     {
         if (table.num_rows >= TABLE_MAX_ROWS)
         {
@@ -91,7 +91,7 @@ public class Driver
         return ExecuteResult.EXECUTE_SUCCESS;
     }
 
-    unsafe ExecuteResult execute_select(Statement statement)
+    ExecuteResult execute_select(Statement statement)
     {
         Row row;
         for (int i = 0; i < table.num_rows; i++)
