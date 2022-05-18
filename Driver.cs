@@ -1,6 +1,7 @@
-using System.Buffers;
 using System.Runtime.InteropServices;
 using System.Text;
+
+namespace Sqldb;
 
 public class Driver
 {
