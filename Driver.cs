@@ -121,7 +121,7 @@ public class Driver
     {
         int page_num = row_num / ROWS_PER_PAGE;
         var page = table.pages[page_num];
-        if (page == null)
+        if (page is null)
         {
             page = table.pages[page_num] = new Memory<byte>(new byte[PAGE_SIZE]);
         }
