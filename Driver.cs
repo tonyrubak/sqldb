@@ -35,7 +35,7 @@ public class Driver
         return MetaCommandResult.META_COMMAND_UNRECOGNIZED_COMMAND;
     }
 
-    public unsafe PrepareResult prepare_statement(string input_string, out Statement statement)
+    public PrepareResult prepare_statement(string input_string, out Statement statement)
     {
         statement = new Statement();
         if (input_string.StartsWith("insert"))
