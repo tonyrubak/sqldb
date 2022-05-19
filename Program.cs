@@ -36,6 +36,9 @@ class Program
                 case Driver.PrepareResult.PREPARE_SYNTAX_ERROR:
                     Console.WriteLine("Syntax error. Could not parse statement.");
                     continue;
+                case Driver.PrepareResult.PREPARE_STRING_TOO_LONG:
+                    Console.WriteLine("String too long.");
+                    continue;
                 case Driver.PrepareResult.PREPARE_UNRECOGNIZED_STATEMENT:
                     Console.WriteLine("Unrecognized keyword at start of '{0}'.",
                         input_buffer.ToString());

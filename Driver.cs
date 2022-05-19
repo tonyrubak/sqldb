@@ -40,21 +40,7 @@ public class Driver
         statement = new Statement();
         if (input_string.StartsWith("insert"))
         {
-            statement.statement_type = StatementType.STATEMENT_INSERT;
-            var args = input_string.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            if (args.Length < 4)
-                return PrepareResult.PREPARE_SYNTAX_ERROR;
-            var userBytes = Encoding.Unicode.GetBytes(args[2].ToCharArray());
-            var emailBytes = Encoding.Unicode.GetBytes(args[3].ToCharArray());
-            statement.row_to_insert.id = UInt32.Parse(args[1]);
-            fixed (
-                char* ptrToUsername = statement.row_to_insert.username,
-                ptrToEmail = statement.row_to_insert.email)
-            {
-                Marshal.Copy(userBytes, 0, (IntPtr) ptrToUsername, userBytes.Length);
-                Marshal.Copy(emailBytes,0, (IntPtr) ptrToEmail, emailBytes.Length);
-            }
-            return PrepareResult.PREPARE_SUCCESS;
+            return prepare_insert(input_string, statement);
         }
         else if (input_string == "select")
         {
@@ -65,6 +51,41 @@ public class Driver
         {
             return PrepareResult.PREPARE_UNRECOGNIZED_STATEMENT;
         }
+    }
+
+    private static unsafe PrepareResult prepare_insert(string input_string, Statement statement)
+    {
+        statement.statement_type = StatementType.STATEMENT_INSERT;
+        var args = input_string.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (args.Length < 4)
+            return PrepareResult.PREPARE_SYNTAX_ERROR;
+        string id_string = args[1];
+        int id = Int32.Parse(id_string);
+        if (id < 0)
+        {
+            return PrepareResult.PREPARE_NEGATIVE_ID;
+        }
+        string username = args[2];
+        string email = args[3];
+        if (id_string == String.Empty || username == String.Empty || email == String.Empty)
+        {
+            return PrepareResult.PREPARE_SYNTAX_ERROR;
+        }
+        if (username.Length > COLUMN_USERNAME_SIZE || email.Length > COLUMN_EMAIL_SIZE)
+        {
+            return PrepareResult.PREPARE_STRING_TOO_LONG;
+        }
+        var userBytes = Encoding.Unicode.GetBytes(username.ToCharArray());
+        var emailBytes = Encoding.Unicode.GetBytes(email.ToCharArray());
+        statement.row_to_insert.id = (uint)id;
+        fixed (
+            char* ptrToUsername = statement.row_to_insert.username,
+            ptrToEmail = statement.row_to_insert.email)
+        {
+            Marshal.Copy(userBytes, 0, (IntPtr)ptrToUsername, userBytes.Length);
+            Marshal.Copy(emailBytes, 0, (IntPtr)ptrToEmail, emailBytes.Length);
+        }
+        return PrepareResult.PREPARE_SUCCESS;
     }
 
     public ExecuteResult execute_statement(Statement statement)
@@ -167,25 +188,27 @@ public class Driver
     public enum MetaCommandResult
     {
         META_COMMAND_SUCCESS,
-        META_COMMAND_UNRECOGNIZED_COMMAND
+        META_COMMAND_UNRECOGNIZED_COMMAND,
     }
 
     public enum PrepareResult
     {
+        PREPARE_NEGATIVE_ID,
+        PREPARE_STRING_TOO_LONG,
         PREPARE_SUCCESS,
         PREPARE_SYNTAX_ERROR,
-        PREPARE_UNRECOGNIZED_STATEMENT
+        PREPARE_UNRECOGNIZED_STATEMENT,
     }
 
     public enum StatementType
     {
         STATEMENT_INSERT,
-        STATEMENT_SELECT
+        STATEMENT_SELECT,
     }
 
     public enum ExecuteResult
     {
         EXECUTE_SUCCESS,
-        EXECUTE_TABLE_FULL
+        EXECUTE_TABLE_FULL,
     }
 }
