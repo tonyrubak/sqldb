@@ -47,7 +47,8 @@ public class Driver
             var userBytes = Encoding.Unicode.GetBytes(args[2].ToCharArray());
             var emailBytes = Encoding.Unicode.GetBytes(args[3].ToCharArray());
             statement.row_to_insert.id = UInt32.Parse(args[1]);
-            fixed (char* ptrToUsername = statement.row_to_insert.username,
+            fixed (
+                char* ptrToUsername = statement.row_to_insert.username,
                 ptrToEmail = statement.row_to_insert.email)
             {
                 Marshal.Copy(userBytes, 0, (IntPtr) ptrToUsername, userBytes.Length);
@@ -105,7 +106,11 @@ public class Driver
 
     unsafe void print_row(Row row)
     {
-        Console.WriteLine("({0}, {1}, {2})", row.id, new String(row.username), new String(row.email));
+        Console.WriteLine(
+            "({0}, {1}, {2})",
+            row.id,
+            new String(row.username),
+            new String(row.email));
     }
 
     void serialize_row(ref Row source, Span<byte> dest)
