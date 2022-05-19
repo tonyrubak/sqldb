@@ -145,8 +145,8 @@ public class Driver
     public unsafe struct Row
     {
         public uint id;
-        public fixed char username[COLUMN_USERNAME_SIZE];
-        public fixed char email[COLUMN_EMAIL_SIZE];
+        public fixed char username[COLUMN_USERNAME_SIZE + 1];
+        public fixed char email[COLUMN_EMAIL_SIZE + 1];
     }
 
     struct Table
