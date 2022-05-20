@@ -132,7 +132,7 @@ class Pager : IDisposable
         this.pages = new Memory<byte>?[page_size];
     }
 
-        public void Dispose()
+    public void Dispose()
     {
         this.Dispose(true);
     }

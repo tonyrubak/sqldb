@@ -115,18 +115,21 @@ public class Driver
         }
 
         var row_to_insert = statement.row_to_insert;
-        serialize_row(ref row_to_insert, table.row_slot(table.num_rows));
+        Cursor cursor = new Cursor(table, Cursor.CursorStartPosition.CursorStartEnd);
+        serialize_row(ref row_to_insert, cursor.CursorValue());
         table.num_rows++;
         return ExecuteResult.EXECUTE_SUCCESS;
     }
 
     ExecuteResult execute_select(Statement statement)
     {
+        Cursor cursor = new Cursor(table, Cursor.CursorStartPosition.CursorStartBegin);
         Row row;
-        for (int i = 0; i < table.num_rows; i++)
+        while (!cursor.end_of_table)
         {
-            row = deserialize_row(table.row_slot(i));
+            row = deserialize_row(cursor.CursorValue());
             print_row(row);
+            cursor.Advance();
         }
         return ExecuteResult.EXECUTE_SUCCESS;
     }
