@@ -6,10 +6,21 @@ namespace Sqldb;
 
 class Program
 {
-    static void Main()
+    static void Main(string[] args)
     {
         var input_buffer = new StringBuilder();
-        var driver = new Driver();
+        string filename;
+
+        if (args.Length > 0)
+        {
+            filename = args[0];
+        }
+        else
+        {
+            filename = "mydb.db";
+        }
+
+        var driver = new Driver(filename);
 
         while (true)
         {

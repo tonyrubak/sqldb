@@ -3,6 +3,180 @@ using System.Text;
 
 namespace Sqldb;
 
+class Table : IDisposable
+{
+    internal long num_rows;
+    public Pager pager;
+    public Table(string filename)
+    {
+        pager = Pager.Open(filename);
+        num_rows = pager.file_length / Driver.ROW_SIZE;
+    }
+
+    public void Close()
+    {
+        pager.Close(num_rows);
+        this.Dispose();
+    }
+
+    public void Dispose()
+    {
+        pager.Dispose();
+    }
+}
+
+class Pager : IDisposable
+{
+    string filename;
+    FileStream fs;
+    public readonly long file_length;
+    internal Memory<byte>?[] pages;
+
+    public void Close(long num_rows)
+    {
+        long num_full_pages = num_rows / Driver.ROWS_PER_PAGE;
+        for (int i = 0; i < num_full_pages; i++)
+        {
+            if (pages[i] is null)
+            {
+                continue;
+            }
+            Flush(i, Driver.PAGE_SIZE);
+            pages[i] = null;
+        }
+
+        long num_addl_rows = num_rows % Driver.ROWS_PER_PAGE;
+        if (num_addl_rows > 0)
+        {
+            int page_num = (int)num_full_pages;
+            if (pages[page_num] is not null)
+            {
+                Flush(page_num, num_addl_rows * Driver.ROW_SIZE);
+                pages[page_num] = null;
+            }
+        }
+    }
+
+    private void Flush(int page_num, long size)
+    {
+        if (pages[page_num] is null)
+        {
+            Console.WriteLine("Tried to flush null page");
+            System.Environment.Exit(-1);
+        }
+        
+        long offset = fs.Seek(page_num * Driver.PAGE_SIZE, SeekOrigin.Begin);
+        try
+        {
+            fs.Write(pages[page_num].Value.Slice(0, (int)size).Span);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Error writing: {0}", ex.Message);
+            System.Environment.Exit(-1);
+        }
+    }
+
+    public Memory<byte> GetPage(long page_num)
+    {
+        if (page_num > Driver.TABLE_MAX_PAGES)
+        {
+            Console.WriteLine(
+                "Tried to fetch page number out of bounds {0} > {1}",
+                page_num,
+                Driver.TABLE_MAX_PAGES);
+            System.Environment.Exit(-1);
+        }
+
+        if (pages[page_num] is null)
+        {
+            var page_buffer = new byte[Driver.PAGE_SIZE];
+            long num_pages = file_length / Driver.PAGE_SIZE;
+            if (file_length % Driver.PAGE_SIZE != 0)
+            {
+                num_pages += 1;
+            }
+
+            if (page_num <= num_pages)
+            {
+                fs.Seek(page_num * Driver.PAGE_SIZE, SeekOrigin.Begin);
+                try
+                {
+                    fs.Read(page_buffer, 0, Driver.PAGE_SIZE);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("Error reading file: {0}", ex.Message);
+                    System.Environment.Exit(-1);
+                }
+            }
+            pages[page_num] = new Memory<byte>(page_buffer);
+        }
+        return pages[page_num].Value;
+    }
+
+    public static Pager Open(string filename)
+    {
+        try
+        {
+            var fs = File.Open(
+                filename,
+                FileMode.OpenOrCreate,
+                FileAccess.ReadWrite
+            );
+            long file_length = fs.Seek(0, SeekOrigin.End);
+            Pager pager = new Pager(
+                filename,
+                fs,
+                file_length,
+                Driver.TABLE_MAX_PAGES);
+            for (int i = 0; i < Driver.TABLE_MAX_PAGES; i++)
+            {
+                pager.pages[i] = null;
+            }
+            return pager;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Unable to open file");
+            Console.WriteLine(ex.Message);
+            System.Environment.Exit(-1);
+        }
+        return null;
+    }
+
+    private Pager(
+        string filename,
+        FileStream fs,
+        long file_length,
+        int page_size)
+    {
+        this.filename = filename;
+        this.fs = fs;
+        this.file_length = file_length;
+        this.pages = new Memory<byte>?[page_size];
+    }
+
+        public void Dispose()
+    {
+        this.Dispose(true);
+    }
+
+    protected void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            GC.SuppressFinalize(this);
+        }
+        fs.Close();
+    }
+
+    ~Pager()
+    {
+        this.Dispose(false);
+    }
+}
+
 public class Driver
 {
     const int COLUMN_USERNAME_SIZE = 32;
@@ -10,26 +184,32 @@ public class Driver
     const int ID_SIZE = sizeof(uint);
     const int USERNAME_SIZE = sizeof(char) * COLUMN_USERNAME_SIZE;
     const int EMAIL_SIZE = sizeof(char) * COLUMN_EMAIL_SIZE;
-    const int ROW_SIZE = ID_SIZE + USERNAME_SIZE + EMAIL_SIZE;
-    const int PAGE_SIZE = 4096;
-    const int TABLE_MAX_PAGES = 100;
-    const int ROWS_PER_PAGE = PAGE_SIZE / ROW_SIZE;
-    const int TABLE_MAX_ROWS = ROWS_PER_PAGE * TABLE_MAX_PAGES;
+    public const long ROW_SIZE = ID_SIZE + USERNAME_SIZE + EMAIL_SIZE;
+    public const int PAGE_SIZE = 4096;
+    public const int TABLE_MAX_PAGES = 100;
+    public const long ROWS_PER_PAGE = PAGE_SIZE / ROW_SIZE;
+    const long TABLE_MAX_ROWS = ROWS_PER_PAGE * TABLE_MAX_PAGES;
     const int ID_OFFSET = 0;
     const int USERNAME_OFFSET = ID_OFFSET + ID_SIZE;
     const int EMAIL_OFFSET = USERNAME_OFFSET + USERNAME_SIZE;
 
     Table table;
 
-    public Driver()
+    public Driver(string filename)
     {
-        table = new Table();
+        table = new Table(filename);
+    }
+
+    public void Close()
+    {
+        table.Close();
     }
 
     public MetaCommandResult do_meta_command(string input_string)
     {
         if (input_string == ".exit")
         {
+            table.Close();
             System.Environment.Exit(0);
         }
         return MetaCommandResult.META_COMMAND_UNRECOGNIZED_COMMAND;
@@ -144,17 +324,13 @@ public class Driver
         return MemoryMarshal.Read<Row>(source);
     }
 
-    Span<byte> row_slot(int row_num)
+    Span<byte> row_slot(long row_num)
     {
-        int page_num = row_num / ROWS_PER_PAGE;
-        var page = table.pages[page_num];
-        if (page is null)
-        {
-            page = table.pages[page_num] = new Memory<byte>(new byte[PAGE_SIZE]);
-        }
+        long page_num = row_num / ROWS_PER_PAGE;
+        var page = table.pager.GetPage(page_num);
         var row_offset = row_num % ROWS_PER_PAGE;
         var byte_offset = row_offset * ROW_SIZE;
-        return page.Value.Slice(byte_offset).Span;
+        return page.Slice((int)byte_offset).Span;
     }
 
     public class Statement
@@ -168,21 +344,6 @@ public class Driver
         public uint id;
         public fixed char username[COLUMN_USERNAME_SIZE + 1];
         public fixed char email[COLUMN_EMAIL_SIZE + 1];
-    }
-
-    struct Table
-    {
-        internal int num_rows;
-        internal Memory<byte>?[] pages;
-        public Table()
-        {
-            num_rows = 0;
-            pages = new Memory<byte>?[TABLE_MAX_PAGES];
-            for (int i = 0; i < TABLE_MAX_PAGES; i++)
-            {
-                pages[i] = null;
-            }
-        }
     }
 
     public enum MetaCommandResult
