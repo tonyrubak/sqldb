@@ -115,7 +115,7 @@ public class Driver
         }
 
         var row_to_insert = statement.row_to_insert;
-        serialize_row(ref row_to_insert, row_slot(table.num_rows));
+        serialize_row(ref row_to_insert, table.row_slot(table.num_rows));
         table.num_rows++;
         return ExecuteResult.EXECUTE_SUCCESS;
     }
@@ -125,7 +125,7 @@ public class Driver
         Row row;
         for (int i = 0; i < table.num_rows; i++)
         {
-            row = deserialize_row(row_slot(i));
+            row = deserialize_row(table.row_slot(i));
             print_row(row);
         }
         return ExecuteResult.EXECUTE_SUCCESS;
@@ -148,15 +148,6 @@ public class Driver
     Row deserialize_row(Span<byte> source)
     {
         return MemoryMarshal.Read<Row>(source);
-    }
-
-    Span<byte> row_slot(long row_num)
-    {
-        long page_num = row_num / ROWS_PER_PAGE;
-        var page = table.pager.GetPage(page_num);
-        var row_offset = row_num % ROWS_PER_PAGE;
-        var byte_offset = row_offset * ROW_SIZE;
-        return page.Slice((int)byte_offset).Span;
     }
 
     public class Statement
